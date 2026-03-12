@@ -1,0 +1,90 @@
+{
+  "info": {
+    "_postman_id": "b9fb9ec8-0c5a-42de-b1b6-1fd6642b63b8",
+    "name": "Rate Limiter",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Burst Until 429",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('runInitialized')) {",
+              "  pm.collectionVariables.set('runInitialized', 'true');",
+              "  pm.collectionVariables.set('attempt', '0');",
+              "}",
+              "const currentAttempt = Number(pm.collectionVariables.get('attempt') || '0') + 1;",
+              "pm.collectionVariables.set('attempt', String(currentAttempt));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const code = pm.response.code;",
+              "const attempt = Number(pm.collectionVariables.get('attempt') || '0');",
+              "const maxAttempts = Number(pm.collectionVariables.get('maxAttempts') || '120');",
+              "",
+              "console.log(`Attempt ${attempt}, status ${code}`);",
+              "",
+              "if (code === 429) {",
+              "  pm.test('Rate limit reached (429)', function () {",
+              "    pm.expect(code).to.eql(429);",
+              "  });",
+              "  pm.collectionVariables.unset('runInitialized');",
+              "  pm.collectionVariables.unset('attempt');",
+              "  postman.setNextRequest(null);",
+              "} else {",
+              "  pm.test('Request still allowed', function () {",
+              "    pm.expect(code).to.eql(200);",
+              "  });",
+              "  if (attempt >= maxAttempts) {",
+              "    pm.test('Failed to hit 429 within maxAttempts', function () {",
+              "      pm.expect.fail(`No 429 after ${maxAttempts} attempts`);",
+              "    });",
+              "    pm.collectionVariables.unset('runInitialized');",
+              "    pm.collectionVariables.unset('attempt');",
+              "    postman.setNextRequest(null);",
+              "  } else {",
+              "    postman.setNextRequest('Burst Until 429');",
+              "  }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-KEY",
+            "value": "{{clientId}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/resource",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "resource"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "maxAttempts",
+      "value": "120"
+    }
+  ]
+}
